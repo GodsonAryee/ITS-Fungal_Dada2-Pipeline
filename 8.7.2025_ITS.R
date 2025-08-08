@@ -8,7 +8,7 @@ library(Biostrings); packageVersion("Biostrings")
 # -----------------------------
 # Set Paths
 # -----------------------------
-path <- "/Users/godsonaryee/Documents/Collaborators_Data/Juddy/ITS PRESSED WATER DATA/"  # CHANGE THIS IF NEEDED
+path <- "/Users/godsonaryee/Documents/Collaborators_Data/Juddy/ITS PRESSED WATER DATA/"  # CHANGE THIS
 setwd(path)
 
 # -----------------------------
@@ -99,11 +99,6 @@ REV.RC <- dada2:::rc(REV)
 R1.flags <- paste("-g", FWD, "-a", REV.RC)
 R2.flags <- paste("-G", REV, "-A", FWD.RC)
 
-#for(i in seq_along(fnFs)) {
-#system2(cutadapt, args = c(R1.flags, R2.flags, "-n", 2,
-#"-o", fnFs.cut[i], "-p", fnRs.cut[i],
-#fnFs.filtN[i], fnRs.filtN[i]))
-#}
 for(i in seq_along(fnFs)) {
   system2(cutadapt, args = c(
     R1.flags, R2.flags, "-n", "2",
@@ -262,6 +257,7 @@ Reads_per_sample = data.table(as(sample_data(PS_clean), "data.frame"),
 setnames(Reads_per_sample, "rn", "SampleID")
 write.csv(Reads_per_sample, file="Reads_per_sample_Water.csv")
 saveRDS(PS_clean, "ps_water.rds")
+
 #########Genus level Abundances##
 # Load necessary packages
 library(phyloseq)
@@ -286,39 +282,6 @@ ggplot(df_genus, aes(x = Sample, y = Abundance, fill = Genus)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   guides(fill = guide_legend(ncol = 1))  # Adjust legend layout if needed
 
-# Load necessary packages
-library(phyloseq)
-library(ggplot2)
-library(dplyr)
-
-# Step 1: Agglomerate to Genus level
-PS_genus <- tax_glom(PS_clean, taxrank = "Genus")
-
-# Step 2: Transform counts to relative abundances
-PS_genus_rel <- transform_sample_counts(PS_genus, function(x) x / sum(x))
-
-# Step 3: Convert phyloseq object to data frame for plotting
-df_genus <- psmelt(PS_genus_rel)
-
-# Step 4: Filter to keep only the top 15 genera by mean relative abundance
-top15_genera <- df_genus %>%
-  group_by(Genus) %>%
-  summarise(mean_abundance = mean(Abundance, na.rm = TRUE)) %>%
-  top_n(15, mean_abundance) %>%
-  pull(Genus)
-
-df_top15 <- df_genus %>%
-  filter(Genus %in% top15_genera)
-
-# Step 5: Plot with ggplot2, faceting by SampleType and grouping by Treatment
-ggplot(df_top15, aes(x = Location, y = Abundance, fill = Genus)) +
-  geom_bar(stat = "identity", position = "stack") +
-  labs(x = "Location", y = "Relative Abundance", title = "Top 15 Genera-Level Relative Abundance by Sample Type") +
-  facet_wrap(~ Processing.Period, scales = "free_x") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  guides(fill = guide_legend(ncol = 1))  # Adjust legend layout if needed
-write.csv(df_top15, file = "top15_genera.csv")
 ####RELATIVE ABUNDANCE FOR EACH SAMPLE TYPE###
 ##Analyzing only a subset of samples (e.g. Nasal samples)
 PS_Nasal_swab <- subset_samples(ps_reads_1000, Sample_type == "Nasal swab")
