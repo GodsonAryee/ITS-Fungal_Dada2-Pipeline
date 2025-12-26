@@ -1,6 +1,6 @@
-# -----------------------------
+
 # Load Required Libraries
-# -----------------------------
+
 library(dada2); packageVersion("dada2")
 library(ShortRead); packageVersion("ShortRead")
 library(Biostrings); packageVersion("Biostrings")
@@ -9,11 +9,10 @@ library(Biostrings); packageVersion("Biostrings")
 # Set Paths
 # -----------------------------
 path <- "/Users/godsonaryee/Documents/Collaborators_Data/Juddy/ITS PRESSED WATER DATA/"  # CHANGE THIS
-setwd(path)
 
-# -----------------------------
+#setwd(path)
+
 # List and Sort Input Files
-# -----------------------------
 all_files <- list.files(path, pattern = ".fastq.gz$", full.names = TRUE)
 fnFs <- sort(all_files[grepl("_R1.fastq.gz$", all_files)])
 fnRs <- sort(all_files[grepl("_R2.fastq.gz$", all_files)])
@@ -21,9 +20,8 @@ fnRs <- sort(all_files[grepl("_R2.fastq.gz$", all_files)])
 # Sanity check
 if(length(fnFs) != length(fnRs)) stop("Forward and reverse reads do not match!")
 
-# -----------------------------
 # Extract Sample Names
-# -----------------------------
+
 get.sample.name <- function(fname) {
   sub(" \\(paired\\)_ITS1_R[12]\\.fastq\\.gz", "", basename(fname))
 }
@@ -32,9 +30,8 @@ sample.names <- unname(sapply(fnFs, get.sample.name))
 # Confirm correct pairing
 stopifnot(all(get.sample.name(fnFs) == get.sample.name(fnRs)))
 
-# -----------------------------
 # Pre-Filter Reads with Ns
-# -----------------------------
+
 filtN_dir <- file.path(path, "filtN")
 dir.create(filtN_dir, showWarnings = FALSE)
 
@@ -47,9 +44,9 @@ out <- filterAndTrim(fnFs, fnFs.filtN, fnRs, fnRs.filtN,
                      compress = TRUE, multithread = TRUE)
 head(out)
 
-# -----------------------------
+
 # Primer Definitions
-# -----------------------------
+
 FWD <- "CTTGGTCATTTAGAGGAAGTAA"
 REV <- "GCTGCGTTCTTCATCGATGC"
 
@@ -79,9 +76,8 @@ rbind(
   REV.ReverseReads  = sapply(REV.orients, primerHits, fn = fnRs.filtN[[1]])
 )
 
-# -----------------------------
 # Run Cutadapt
-# -----------------------------
+
 #cutadapt <- "/usr/local/bin/cutadapt"  # CHANGE THIS TO YOUR CUTADAPT PATH
 cutadapt <-"/Users/godsonaryee/miniconda3/bin/cutadapt"
 stopifnot(file.exists(cutadapt))
@@ -117,9 +113,8 @@ rbind(
   REV.ReverseReads  = sapply(REV.orients, primerHits, fn = fnRs.cut[[1]])
 )
 
-# -----------------------------
 # Filter Again After Primer Removal
-# -----------------------------
+
 filtered_dir <- file.path(path.cut, "filtered")
 dir.create(filtered_dir, showWarnings = FALSE)
 
@@ -132,25 +127,19 @@ out <- filterAndTrim(fnFs.cut, filtFs, fnRs.cut, filtRs,
                      compress = TRUE, multithread = TRUE)
 head(out)
 
-# -----------------------------
 # Learn Error Rates
-# -----------------------------
 errF <- learnErrors(filtFs, multithread = TRUE)
 errR <- learnErrors(filtRs, multithread = TRUE)
 plotErrors(errF, nominalQ = TRUE)
 
-# -----------------------------
 # Dereplication & Denoising
-# -----------------------------
 dadaFs <- dada(filtFs, err = errF, multithread = TRUE)
 dadaRs <- dada(filtRs, err = errR, multithread = TRUE)
 
 # Merge Paired Reads
 mergers <- mergePairs(dadaFs, filtFs, dadaRs, filtRs, verbose = TRUE)
 
-# -----------------------------
 # Sequence Table & Chimera Removal
-# -----------------------------
 seqtab <- makeSequenceTable(mergers)
 dim(seqtab)
 
@@ -283,22 +272,23 @@ ggplot(df_genus, aes(x = Sample, y = Abundance, fill = Genus)) +
   guides(fill = guide_legend(ncol = 1))  # Adjust legend layout if needed
 
 ####RELATIVE ABUNDANCE FOR EACH SAMPLE TYPE###
-##Analyzing only a subset of samples (e.g. Nasal samples)
-PS_Nasal_swab <- subset_samples(ps_reads_1000, Sample_type == "Nasal swab")
 #Remove samples with fewer than 1000 sequences
 ps_reads_1000 = prune_samples(sample_sums(PS_clean) > 1000, PS_clean)
+##Analyzing only a subset of samples (e.g. Rumen fluids)
+PS_Rumen_fluid <- subset_samples(ps_reads_1000, Sample_type == "Rumen fluid")
+
 
 #Create genus level summaries				 
-ps_phylum <- tax_glom(PS_clean, taxrank = 'Genus',NArm = FALSE,bad_empty=c(NA, "", " ", "\t"))
-ps_phylum_rel = transform_sample_counts(ps_phylum, function(x) x/sum(x)*100)
-dat <- psmelt(ps_phylum_rel)
+ps_genus <- tax_glom(PS_clean, taxrank = 'Genus',NArm = FALSE,bad_empty=c(NA, "", " ", "\t"))
+ps_genus_rel = transform_sample_counts(ps_genus, function(x) x/sum(x)*100)
+dat <- psmelt(ps_genus_rel)
 dat$Genus<- as.character(dat$Genus)
-phylum_abundance <- aggregate(Abundance~Sample+Genus, dat, FUN=sum)
-phylum_abundance <- cast(phylum_abundance, Sample ~ Genus)
+genus_abundance <- aggregate(Abundance~Sample+Genus, dat, FUN=sum)
+genus_abundance <- cast(genus_abundance, Sample ~ Genus)
 
 
 # Make sure the columns to use for the merge are identical
-identical( sort(Metadata$Description), sort(phylum_abundance$Sample))
+identical( sort(Metadata$Description), sort(genus_abundance$Sample))
 # [1] TRUE
 genus_abundance_with_metadata <-  merge(Metadata, genus_abundance, by.x = "Description", by.y = "Sample") 
-write.csv(phylum_abundance, file="Genus_summary_with_metadata.csv")
+write.csv(genus_abundance, file="Genus_summary_with_metadata.csv")
